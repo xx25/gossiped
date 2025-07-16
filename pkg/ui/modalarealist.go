@@ -12,25 +12,27 @@ import (
 // ModalAreaList is a centered message window used to inform the user or prompt them
 type ModalAreaList struct {
 	*tview.Box
-	table     *tview.Table
-	frame     *tview.Frame
-	textColor tcell.Color
-	title     string
-	done      func(buttonIndex int)
+	table          *tview.Table
+	frame          *tview.Frame
+	textColor      tcell.Color
+	title          string
+	done           func(buttonIndex int)
+	searchString   *SearchString
+	currentSearch  string
 }
 
 // NewModalAreaList returns a new modal message window.
 func NewModalAreaList() *ModalAreaList {
 	defFg, defBg, _ := config.StyleDefault.Decompose()
 	m := &ModalAreaList{
-		Box:       tview.NewBox().SetBackgroundColor(defBg),
-		textColor: defFg,
+		Box:          tview.NewBox().SetBackgroundColor(defBg),
+		textColor:    defFg,
+		searchString: NewSearchString(),
+		currentSearch: "",
 	}
 	borderFg, _, borderAttr := config.GetElementStyle(config.ColorAreaAreaListModal, config.ColorElementBorder).Decompose()
 	headerStyle := config.GetElementStyle(config.ColorAreaAreaListModal, config.ColorElementHeader)
 	selectionStyle := config.GetElementStyle(config.ColorAreaAreaListModal, config.ColorElementSelection)
-	itemStyle := config.GetElementStyle(config.ColorAreaAreaListModal, config.ColorElementItem)
-	fgItem, bgItem, attrItem := itemStyle.Decompose()
 	fgHeader, bgHeader, attrHeader := headerStyle.Decompose()
 	m.table = tview.NewTable().
 		SetFixed(1, 0).
@@ -38,7 +40,10 @@ func NewModalAreaList() *ModalAreaList {
 		SetSelectable(true, false).
 		SetSelectedStyle(selectionStyle).
 		SetSelectedFunc(func(row int, column int) {
-			m.done(row)
+			areas := msgapi.FilterAreas(m.currentSearch)
+			if row > 0 && row-1 < len(areas) {
+				m.done(areas[row-1].OriginalIndex + 1)
+			}
 		})
 	m.frame = tview.NewFrame(m.table).SetBorders(0, 0, 1, 0, 0, 0)
 	m.frame.SetBackgroundColor(defBg)
@@ -67,19 +72,54 @@ func NewModalAreaList() *ModalAreaList {
 			SetTextColor(fgHeader).SetBackgroundColor(bgHeader).SetAttributes(attrHeader).
 			SetSelectable(false).
 			SetAlign(tview.AlignRight))
-	for i, ar := range msgapi.Areas {
-		m.table.SetCell(i+1, 0, tview.NewTableCell(strconv.FormatInt(int64(i), 10)+" ").
-			SetAlign(tview.AlignRight).SetTextColor(fgItem).SetBackgroundColor(bgItem).SetAttributes(attrItem))
+	
+	m.refreshAreaList()
+	return m
+}
+
+// refreshAreaList updates the table with filtered areas
+func (m *ModalAreaList) refreshAreaList() {
+	// Clear existing rows (keep header)
+	rowCount := m.table.GetRowCount()
+	for i := rowCount - 1; i > 0; i-- {
+		m.table.RemoveRow(i)
+	}
+	
+	// Get filtered areas
+	areas := msgapi.FilterAreas(m.currentSearch)
+	
+	// Add area rows
+	itemStyle := config.GetElementStyle(config.ColorAreaAreaListModal, config.ColorElementItem)
+	highlightStyle := config.GetElementStyle(config.ColorAreaAreaListModal, config.ColorElementHighlight)
+	fgItem, bgItem, attrItem := itemStyle.Decompose()
+	fgHigh, bgHigh, attrHigh := highlightStyle.Decompose()
+	
+	for i, filtered := range areas {
+		ar := filtered.AreaPrimitive
+		fg, bg, attr := fgItem, bgItem, attrItem
+		areaStyle := ""
+		
+		if msgapi.AreaHasUnreadMessages(&ar) {
+			areaStyle = "+"
+			fg, bg, attr = fgHigh, bgHigh, attrHigh
+		}
+		
+		m.table.SetCell(i+1, 0, tview.NewTableCell(areaStyle+strconv.FormatInt(int64(filtered.OriginalIndex), 10)).
+			SetAlign(tview.AlignRight).SetTextColor(fg).SetBackgroundColor(bg).SetAttributes(attr))
 		m.table.SetCell(i+1, 1, tview.NewTableCell(ar.GetName()).
-			SetTextColor(fgItem).SetBackgroundColor(bgItem).SetAttributes(attrItem))
+			SetTextColor(fg).SetBackgroundColor(bg).SetAttributes(attr))
 		m.table.SetCell(i+1, 2, tview.NewTableCell(strconv.FormatInt(int64(ar.GetCount()), 10)).
 			SetAlign(tview.AlignRight).
-			SetTextColor(fgItem).SetBackgroundColor(bgItem).SetAttributes(attrItem))
+			SetTextColor(fg).SetBackgroundColor(bg).SetAttributes(attr))
 		m.table.SetCell(i+1, 3, tview.NewTableCell(strconv.FormatInt(int64(ar.GetCount()-ar.GetLast()), 10)).
 			SetAlign(tview.AlignRight).
-			SetTextColor(fgItem).SetBackgroundColor(bgItem).SetAttributes(attrItem))
+			SetTextColor(fg).SetBackgroundColor(bg).SetAttributes(attr))
 	}
-	return m
+	
+	// Auto-select first item if searching and items exist
+	if m.currentSearch != "" && len(areas) > 0 {
+		m.table.Select(1, 0)
+	}
 }
 
 // SetTextColor sets the color of the message text.
@@ -125,14 +165,18 @@ func (m *ModalAreaList) HasFocus() bool {
 // Draw draws this primitive onto the screen.
 func (m *ModalAreaList) Draw(screen tcell.Screen) {
 	width, height := screen.Size()
-	height -= 7
+	height -= 8  // Make room for search bar
 	m.frame.Clear()
 	x := 0
 	y := 6
-	m.SetRect(x, y, width, height)
+	m.SetRect(x, y, width, height+1)
 
-	// Draw the frame.
-	m.frame.SetRect(x, y, width, height)
+	// Draw the search string at the top
+	m.searchString.SetRect(x, y, width, 1)
+	m.searchString.Draw(screen)
+	
+	// Draw the frame below the search
+	m.frame.SetRect(x, y+1, width, height)
 	m.frame.Draw(screen)
 }
 
@@ -140,6 +184,33 @@ func (m *ModalAreaList) Draw(screen tcell.Screen) {
 func (m *ModalAreaList) InputHandler() func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
 	return m.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
 		if m.HasFocus() {
+			switch key := event.Key(); key {
+			case tcell.KeyEsc:
+				if m.currentSearch != "" {
+					m.searchString.Clear()
+					m.currentSearch = ""
+					m.refreshAreaList()
+					return
+				}
+				// If no search, let table handle ESC (probably close modal)
+			case tcell.KeyDown, tcell.KeyUp, tcell.KeyEnter:
+				// Allow navigation and selection within filtered list
+				if handler := m.table.InputHandler(); handler != nil {
+					handler(event, setFocus)
+				}
+				return
+			case tcell.KeyBackspace, tcell.KeyBackspace2:
+				m.searchString.RemoveChar()
+				m.currentSearch = m.searchString.GetText()
+				m.refreshAreaList()
+				return
+			case tcell.KeyRune:
+				m.searchString.AddChar(event.Rune())
+				m.currentSearch = m.searchString.GetText()
+				m.refreshAreaList()
+				return
+			}
+			
 			if handler := m.table.InputHandler(); handler != nil {
 				handler(event, setFocus)
 			}

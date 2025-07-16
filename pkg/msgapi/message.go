@@ -206,10 +206,8 @@ func (m *Message) ToView(showKludges bool) string {
 	var nm []string
 	//re := regexp.MustCompile(">+")
 
-	// Split on both \r and \n to handle different line ending formats
-	lines := strings.FieldsFunc(m.Body, func(r rune) bool {
-		return r == '\r' || r == '\n'
-	})
+	// Split on \r to preserve empty lines like GetForward() does
+	lines := strings.Split(m.Body, "\x0d")
 
 	for _, l := range lines {
 		l = m.parseTabs(l)
@@ -389,7 +387,7 @@ func (m *Message) ToEditForwardView(om *Message) string {
 		"@OName", om.From,
 		"@OAddr", om.FromAddr.String(),
 		"@DName", om.To,
-		"@OEcho", (*m.AreaObject).GetName(),
+		"@OEcho", (*om.AreaObject).GetName(),
 		"@Subject", om.Subject,
 		"@CAddr", config.Config.Address.String(),
 		"@CName", config.Config.Username)

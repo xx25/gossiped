@@ -86,6 +86,7 @@ func (a *App) InsertMsg(area *msgapi.AreaPrimitive, msgType int) (string, tview.
 		a.im.newMsg.Subject = omsg.Subject
 	} else if (a.im.newMsgType & newMsgTypeForward) != 0 {
 		omsg, _ = (*area).GetMsg((*a.im.curArea).GetLast())
+		omsg.AreaObject = a.im.curArea
 		a.im.newMsg.Subject = omsg.Subject
 	}
 	_, boxBg, _ := config.GetElementStyle(config.ColorAreaMessageHeader, config.ColorElementWindow).Decompose()
