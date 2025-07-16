@@ -47,10 +47,10 @@ func NewViewHeader(msg *msgapi.Message) *ViewHeader {
 			[]rune(repl),
 			[]rune(msg.From),
 			[]rune(msg.FromAddr.String()),
-			[]rune(msg.DateWritten.Format("02 Jan 06 15:04:05")),
+			[]rune(msg.DateWritten.Format("02 Jan 2006 15:04:05")),
 			[]rune(msg.To),
 			[]rune(msg.ToAddr.String()),
-			[]rune(msg.DateArrived.Format("02 Jan 06 15:04:05")),
+			[]rune(msg.DateArrived.Format("02 Jan 2006 15:04:05")),
 			[]rune(msg.Subject),
 		}
 	}

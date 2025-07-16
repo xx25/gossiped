@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/askovpen/gossiped/pkg/config"
@@ -625,4 +626,19 @@ func (j *JAM) DelMsg(l uint32) error {
 	}
 	fJhr.Close()
 	return nil
+}
+
+// Line ending handling methods for JAM format
+func (ja *JAM) GetStorageLineEnding() string {
+	return "\r" // JAM stores FTN-style line endings
+}
+
+func (ja *JAM) NormalizeForStorage(body string) string {
+	// Convert Unix \n to FTN \r and ensure trailing \r for JAM format
+	return strings.Join(strings.Split(body, "\n"), "\x0d") + "\x0d"
+}
+
+func (ja *JAM) NormalizeFromStorage(body string) string {
+	// JAM already stores in FTN format, no conversion needed
+	return body
 }

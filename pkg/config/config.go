@@ -7,9 +7,11 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
-	"github.com/askovpen/gossiped/pkg/types"
+	"github.com/askovpen/gossiped/pkg/database"
 	"github.com/askovpen/gossiped/pkg/nodelist"
+	"github.com/askovpen/gossiped/pkg/types"
 	"github.com/gdamore/tcell/v2"
 	"gopkg.in/yaml.v3"
 )
@@ -30,6 +32,17 @@ type (
 			BaseType string
 			Chrs     string
 		}
+		Database struct {
+			Driver          string        `yaml:"driver"`
+			DSN             string        `yaml:"dsn"`
+			MaxOpenConns    int           `yaml:"max_open_conns"`
+			MaxIdleConns    int           `yaml:"max_idle_conns"`
+			ConnMaxLifetime time.Duration `yaml:"conn_max_lifetime"`
+		}
+		LastRead struct {
+			Enabled      bool   `yaml:"enabled"`
+			DatabasePath string `yaml:"database_path"`
+		}
 		Colorscheme string
 		Log         string
 		Address     *types.FidoAddr
@@ -37,16 +50,17 @@ type (
 		Tearline    string
 		Template    string
 		Chrs        struct {
-			Default string
-			IBMPC   string
+			Default      string
+			IBMPC        string
+			JnodeDefault string
 		}
 		Statusbar struct {
 			Clock bool
 		}
-		Sorting  SortTypeMap
-		Colors   map[string]ColorMap
-		CityPath string
-                NodelistPath string
+		Sorting      SortTypeMap
+		Colors       map[string]ColorMap
+		CityPath     string
+		NodelistPath string
 	}
 )
 
@@ -103,7 +117,7 @@ func Read(fn string) error {
 	if len(Config.Tearline) == 0 {
 		Config.Tearline = LongPID
 	}
-	errColors := readColors()
+	errColors := readColors(rootPath)
 	if errColors != nil {
 		return errColors
 	}
@@ -112,12 +126,53 @@ func Read(fn string) error {
 	}
 	Config.CityPath = tryPath(rootPath, Config.CityPath)
 	err = readCity()
-        Config.NodelistPath = tryPath(rootPath, Config.NodelistPath)
-        nodelist.Read(Config.NodelistPath)
+	Config.NodelistPath = tryPath(rootPath, Config.NodelistPath)
+	nodelist.Read(Config.NodelistPath)
 	if err != nil {
 		return err
 	}
+	// Set database defaults if not specified
+	setDatabaseDefaults()
+
 	return nil
+}
+
+// setDatabaseDefaults sets default values for database configuration
+func setDatabaseDefaults() {
+	if Config.Database.Driver == "" {
+		Config.Database.Driver = "sqlite"
+	}
+	if Config.Database.DSN == "" {
+		Config.Database.DSN = "jnode.db"
+	}
+	if Config.Database.MaxOpenConns == 0 {
+		Config.Database.MaxOpenConns = 25
+	}
+	if Config.Database.MaxIdleConns == 0 {
+		Config.Database.MaxIdleConns = 5
+	}
+	if Config.Database.ConnMaxLifetime == 0 {
+		Config.Database.ConnMaxLifetime = 5 * time.Minute
+	}
+}
+
+// GetDatabaseConfig returns the database configuration with defaults applied
+func GetDatabaseConfig() database.DatabaseConfig {
+	return database.DatabaseConfig{
+		Driver:          Config.Database.Driver,
+		DSN:             Config.Database.DSN,
+		MaxOpenConns:    Config.Database.MaxOpenConns,
+		MaxIdleConns:    Config.Database.MaxIdleConns,
+		ConnMaxLifetime: Config.Database.ConnMaxLifetime,
+	}
+}
+
+// GetLastReadConfig returns the lastread configuration with defaults applied
+func GetLastReadConfig() database.LastReadConfig {
+	return database.LastReadConfig{
+		Enabled:      Config.LastRead.Enabled,
+		DatabasePath: Config.LastRead.DatabasePath,
+	}
 }
 
 func readTemplate(tpl []byte) {

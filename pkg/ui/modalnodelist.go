@@ -134,10 +134,10 @@ func (m *ModalNodeList) Draw(screen tcell.Screen) {
 func (m *ModalNodeList) InputHandler() func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
 	return m.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
 		if m.HasFocus() {
-                        switch event.Key() {
-                            case tcell.KeyEscape:
-                                m.done(-1)
-                        }
+			switch event.Key() {
+			case tcell.KeyEscape:
+				m.done(-1)
+			}
 			if handler := m.table.InputHandler(); handler != nil {
 				handler(event, setFocus)
 			}

@@ -6,3 +6,4 @@ config.yml
 coverage.txt
 .vscode
 test
+dbtest

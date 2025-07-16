@@ -88,7 +88,7 @@ func NewModalMessageList(area *msgapi.AreaPrimitive) *ModalMessageList {
 		m.table.SetCell(i+1, 0, tview.NewTableCell(strconv.FormatInt(int64(mh.MsgNum), 10)+ch).
 			SetAlign(tview.AlignRight).
 			SetTextColor(fg).SetBackgroundColor(bg).SetAttributes(attr))
-		//mh.From, mh.To, mh.Subject, mh.DateWritten.Format("02 Jan 06"))
+		//mh.From, mh.To, mh.Subject, mh.DateWritten.Format("02 Jan 2006"))
 		if fromCondition {
 			m.table.SetCell(i+1, 1, tview.NewTableCell(mh.From).
 				SetTextColor(fgHigh).SetBackgroundColor(bgHigh).SetAttributes(attrHigh))
@@ -105,7 +105,7 @@ func NewModalMessageList(area *msgapi.AreaPrimitive) *ModalMessageList {
 		}
 		m.table.SetCell(i+1, 3, tview.NewTableCell(mh.Subject).
 			SetTextColor(fg).SetBackgroundColor(bg).SetAttributes(attr))
-		m.table.SetCell(i+1, 4, tview.NewTableCell(mh.DateWritten.Format("02 Jan 06")).
+		m.table.SetCell(i+1, 4, tview.NewTableCell(mh.DateWritten.Format("02 Jan 2006")).
 			SetTextColor(fg).SetBackgroundColor(bg).SetAttributes(attr))
 	}
 	m.table.Select(int((*area).GetLast()), 0)

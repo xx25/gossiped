@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/askovpen/gossiped/pkg/types"
@@ -10,7 +11,7 @@ import (
 func readCity() error {
 	yamlFile, err := os.ReadFile(Config.CityPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("cannot read city file '%s': %w", Config.CityPath, err)
 	}
 	err = yaml.Unmarshal(yamlFile, &city)
 	if err != nil {

@@ -1,0 +1,65 @@
+# gossiped configuration for jnode SQL database integration
+# Copy this file to gossiped.yml and modify as needed
+
+# Basic FTN identity
+username: "Your Name"
+address: "2:123/456.0"
+origin: "Your BBS Name"
+tearline: "gossiped with jnode SQL support"
+
+# Database configuration for jnode
+database:
+  # Database driver: mysql, postgres, sqlite
+  driver: "mysql"
+  
+  # Data Source Name (connection string)
+  # MySQL example:
+  dsn: "jnode:password@tcp(localhost:3306)/jnode?charset=utf8mb4&parseTime=True&loc=Local"
+  
+  # PostgreSQL example:
+  # dsn: "host=localhost user=jnode password=pass dbname=jnode port=5432 sslmode=disable TimeZone=Asia/Shanghai"
+  
+  # SQLite example:
+  # dsn: "/path/to/jnode.db"
+  
+  # Connection pool settings
+  max_open_conns: 25
+  max_idle_conns: 5
+  conn_max_lifetime: "5m"
+  
+  # Auto-migrate database schema on startup
+  auto_migrate: true
+
+# Area configuration for jnode SQL
+areafile:
+  type: "jnode-sql"  # Use jnode SQL database instead of file-based areas
+  path: ""           # Not used for SQL areas
+
+# Character set configuration  
+chrs:
+  default: "UTF-8 2"
+  ibmpc: "CP866 2"
+
+# UI configuration
+colorscheme: "default"
+log: "gossiped.log"
+template: "gossiped.tpl"
+
+# Optional: City database for nodelist lookups
+citypath: "city.txt"
+nodelistpath: "nodelist.txt"
+
+# Status bar configuration
+statusbar:
+  clock: true
+
+# Area sorting
+sorting:
+  areas: "default"  # or "unread"
+
+# Color scheme overrides
+colors:
+  default:
+    header: "white:blue"
+    text: "white:black"
+    highlight: "black:white"

@@ -1,0 +1,44 @@
+# Test configuration for gossiped with jnode SQLite database
+# This is a minimal configuration for testing SQL functionality
+
+# Basic FTN identity
+username: "Test User"
+address: "2:999/999.0"
+origin: "Test BBS via gossiped"
+tearline: "gossiped with jnode SQL (test)"
+
+# Database configuration for jnode (SQLite for testing)
+database:
+  driver: "sqlite"
+  dsn: "test_jnode.db"
+  max_open_conns: 10
+  max_idle_conns: 2
+  conn_max_lifetime: "5m"
+  auto_migrate: true
+
+# Area configuration for jnode SQL
+areafile:
+  type: "jnode-sql"
+  path: ""  # Not used for SQL areas
+
+# Character set configuration  
+chrs:
+  default: "UTF-8 2"
+  ibmpc: "CP866 2"
+
+# UI configuration
+colorscheme: "default"
+log: "gossiped-test.log"
+template: "gossiped.tpl"
+
+# Optional paths (will use defaults if files don't exist)
+citypath: "city.txt"
+nodelistpath: "nodelist.txt"
+
+# Status bar configuration
+statusbar:
+  clock: true
+
+# Area sorting
+sorting:
+  areas: "default"

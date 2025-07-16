@@ -93,7 +93,7 @@ func (m *MSG) getAttrs(a uint16) (attrs []string) {
 }
 
 func parseDate(date string) (ret time.Time) {
-	ret, _ = time.Parse("02 Jan 06  15:04:05", date)
+	ret, _ = time.Parse("02 Jan 2006  15:04:05", date)
 	return ret
 }
 
@@ -239,7 +239,7 @@ func (m *MSG) SaveMsg(tm *Message) error {
 	copy(msgm.From[:], tm.From)
 	copy(msgm.To[:], tm.To)
 	copy(msgm.Subj[:], tm.Subject)
-	copy(msgm.Date[:], tm.DateWritten.Format("02 Jan 06  15:04:05"))
+	copy(msgm.Date[:], tm.DateWritten.Format("02 Jan 2006  15:04:05"))
 	for kl, v := range tm.Kludges {
 		msgm.Body = "\x01" + kl + " " + v + "\x0d" + msgm.Body
 	}
@@ -316,4 +316,19 @@ func (m *MSG) DelMsg(l uint32) error {
 	}
 	m.messageNums = append(m.messageNums[:l-1], m.messageNums[l:]...)
 	return nil
+}
+
+// Line ending handling methods for MSG format
+func (m *MSG) GetStorageLineEnding() string {
+	return "\r" // MSG stores FTN-style line endings
+}
+
+func (m *MSG) NormalizeForStorage(body string) string {
+	// Convert Unix \n to FTN \r and ensure trailing \r for MSG format
+	return strings.Join(strings.Split(body, "\n"), "\x0d") + "\x0d"
+}
+
+func (m *MSG) NormalizeFromStorage(body string) string {
+	// MSG already stores in FTN format, no conversion needed
+	return body
 }

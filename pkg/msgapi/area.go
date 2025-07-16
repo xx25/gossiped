@@ -34,6 +34,7 @@ const (
 	EchoAreaMsgTypeMSG        EchoAreaMsgType = "MSG"
 	EchoAreaMsgTypeSquish     EchoAreaMsgType = "Squish"
 	EchoAreaMsgTypePasstrough EchoAreaMsgType = "Passtrough"
+	EchoAreaMsgTypeSQL        EchoAreaMsgType = "SQL"
 	EchoAreaTypeNetmail       EchoAreaType    = 0
 	EchoAreaTypeEcho          EchoAreaType    = 3
 	EchoAreaTypeLocal         EchoAreaType    = 4
@@ -57,6 +58,10 @@ type AreaPrimitive interface {
 	DelMsg(uint32) error
 	SaveMsg(*Message) error
 	GetMessages() *[]MessageListItem
+	// Line ending handling methods
+	GetStorageLineEnding() string
+	NormalizeForStorage(body string) string
+	NormalizeFromStorage(body string) string
 }
 
 func AreaHasUnreadMessages(area *AreaPrimitive) bool {

@@ -21,26 +21,32 @@ func Read() error {
 		err = squishConfigRead(config.Config.AreaFile.Path)
 	case "crashmail":
 		err = crashmailConfigRead(config.Config.AreaFile.Path)
+	case "jnode-sql":
+		err = jnodeConfigRead()
 	default:
 		return errors.New("unknown AreasConfig.Type '" + config.Config.AreaFile.Type + "'")
 	}
 	if err != nil {
-		return nil
+		return err
 	}
-	for i := range config.Config.Areas {
-		found := false
-		for _, da := range msgapi.Areas {
-			if config.Config.Areas[i].Name == da.GetName() {
-				found = true
-				if config.Config.Areas[i].Chrs != "" {
-					da.SetChrs(config.Config.Areas[i].Chrs)
+
+	// For jnode-sql, areas are loaded directly from database, skip file-based area processing
+	if config.Config.AreaFile.Type != "jnode-sql" {
+		for i := range config.Config.Areas {
+			found := false
+			for _, da := range msgapi.Areas {
+				if config.Config.Areas[i].Name == da.GetName() {
+					found = true
+					if config.Config.Areas[i].Chrs != "" {
+						da.SetChrs(config.Config.Areas[i].Chrs)
+					}
 				}
 			}
-		}
-		if !found {
-			a, err := getArea(i)
-			if err == nil {
-				msgapi.Areas = append(msgapi.Areas, a)
+			if !found {
+				a, err := getArea(i)
+				if err == nil {
+					msgapi.Areas = append(msgapi.Areas, a)
+				}
 			}
 		}
 	}

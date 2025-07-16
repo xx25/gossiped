@@ -376,7 +376,7 @@ func (s *Squish) SaveMsg(tm *Message) error {
 	copy(sqdh.From[:], tm.From)
 	copy(sqdh.To[:], tm.To)
 	copy(sqdh.Subject[:], tm.Subject)
-	copy(sqdh.Date[:], tm.DateWritten.Format("02 Jan 06  15:04:05"))
+	copy(sqdh.Date[:], tm.DateWritten.Format("02 Jan 2006  15:04:05"))
 	if s.AreaType == EchoAreaTypeNetmail {
 		sqdh.ToZone, sqdh.ToNet, sqdh.ToNode, sqdh.ToPoint = tm.ToAddr.GetZone(), tm.ToAddr.GetNet(), tm.ToAddr.GetNode(), tm.ToAddr.GetPoint()
 	} else {
@@ -593,4 +593,19 @@ func (s *Squish) DelMsg(l uint32) error {
 	defer f.Close()
 
 	return nil
+}
+
+// Line ending handling methods for Squish format
+func (s *Squish) GetStorageLineEnding() string {
+	return "\r" // Squish stores FTN-style line endings
+}
+
+func (s *Squish) NormalizeForStorage(body string) string {
+	// Convert Unix \n to FTN \r and ensure trailing \r for Squish format
+	return strings.Join(strings.Split(body, "\n"), "\x0d") + "\x0d"
+}
+
+func (s *Squish) NormalizeFromStorage(body string) string {
+	// Squish already stores in FTN format, no conversion needed
+	return body
 }

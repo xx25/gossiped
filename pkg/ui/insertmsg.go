@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-
 	"github.com/askovpen/gossiped/pkg/config"
 	"github.com/askovpen/gossiped/pkg/msgapi"
 	"github.com/askovpen/gossiped/pkg/types"
@@ -109,7 +108,8 @@ func (a *App) InsertMsg(area *msgapi.AreaPrimitive, msgType int) (string, tview.
 		a.im.newMsg.From = string(r[0])
 		a.im.newMsg.FromAddr = types.AddrFromString(string(r[1]))
 		a.im.newMsg.To = string(r[2])
-		a.im.newMsg.ToAddr = types.AddrFromString(string(r[3]))
+		toAddrStr := string(r[3])
+		a.im.newMsg.ToAddr = types.AddrFromString(toAddrStr)
 		a.im.newMsg.Subject = string(r[4])
 		/*
 			if len(a.im.eb.GetText(false)) == 0 {

@@ -103,6 +103,63 @@ func (m *Message) ParseRaw() error {
 	return nil
 }
 
+// ParseRawNoDecoding parse raw msg without automatic charset decoding (for jnode SQL)
+func (m *Message) ParseRawNoDecoding() error {
+	m.Kludges = make(map[string]string)
+	for _, l := range strings.Split(m.Body, "\x0d") {
+		if len(l) > 5 && l[0:6] == "\x01INTL " {
+			m.Kludges["INTL"] = l[6:]
+		} else if len(l) > 5 && l[0:6] == "\x01TOPT " {
+			m.Kludges["TOPT"] = l[6:]
+		} else if len(l) > 5 && l[0:6] == "\x01FMPT " {
+			m.Kludges["FMPT"] = l[6:]
+		} else if len(l) > 6 && l[0:7] == "\x01MSGID:" {
+			m.Kludges["MSGID:"] = strings.Trim(l[7:], " ")
+		} else if len(l) > 10 && l[0:11] == "\x20*\x20Origin: " {
+			//re := regexp.MustCompile(`\d+:\d+/\d+\.*\d*`)
+			if len(originRE.FindStringSubmatch(l)) > 0 {
+				m.Kludges["ORIGIN"] = originRE.FindStringSubmatch(l)[0]
+			}
+		} else if len(l) > 5 && l[0:6] == "\x01CHRS:" {
+			m.Kludges["CHRS"] = strings.ToUpper(strings.Split(strings.Trim(l[6:], " "), " ")[0])
+		}
+	}
+	//log.Printf("ParseRawNoDecoding(): %#v", m.Kludges)
+	if m.FromAddr == nil {
+		if _, ok := m.Kludges["INTL"]; ok {
+			m.ToAddr = types.AddrFromString(strings.Split(m.Kludges["INTL"], " ")[0])
+			m.FromAddr = types.AddrFromString(strings.Split(m.Kludges["INTL"], " ")[1])
+		} else if _, ok := m.Kludges["ORIGIN"]; ok {
+			m.FromAddr = types.AddrFromString(m.Kludges["ORIGIN"])
+		}
+	}
+	if m.FromAddr == nil {
+		//return errors.New("FromAddr not defined")
+		m.Corrupted = true
+		m.FromAddr = &types.FidoAddr{}
+	}
+	if m.ToAddr == nil {
+		m.ToAddr = &types.FidoAddr{}
+	}
+
+	if (m.AreaObject == nil) || (*m.AreaObject).GetType() == EchoAreaTypeNetmail {
+		if _, ok := m.Kludges["FMPT"]; ok {
+			a, err := strconv.ParseUint(m.Kludges["FMPT"], 10, 16)
+			if err == nil {
+				m.FromAddr.SetPoint(uint16(a))
+			}
+		}
+		if _, ok := m.Kludges["TOPT"]; ok {
+			a, err := strconv.ParseUint(m.Kludges["TOPT"], 10, 16)
+			if err == nil {
+				m.ToAddr.SetPoint(uint16(a))
+			}
+		}
+	}
+	// NOTE: No automatic m.Decode() call for jnode SQL - content is already UTF-8
+	return nil
+}
+
 func (m *Message) parseTabs(s string) string {
 	for i := 0; i < len(s); i++ {
 		if s[i] == '\x09' {
@@ -148,7 +205,13 @@ func (m *Message) Decode() {
 func (m *Message) ToView(showKludges bool) string {
 	var nm []string
 	//re := regexp.MustCompile(">+")
-	for _, l := range strings.Split(m.Body, "\x0d") {
+
+	// Split on both \r and \n to handle different line ending formats
+	lines := strings.FieldsFunc(m.Body, func(r rune) bool {
+		return r == '\r' || r == '\n'
+	})
+
+	for _, l := range lines {
 		l = m.parseTabs(l)
 		if len(l) > 1 && l[0] == 1 {
 			if showKludges {
@@ -274,7 +337,7 @@ func (m *Message) ToEditAnswerView(om *Message) string {
 	r := strings.NewReplacer(
 		"@pseudo", m.To,
 		"@CFName", strings.Split(m.From, " ")[0],
-		"@ODate", om.DateWritten.Format("02 Jan 06"),
+		"@ODate", om.DateWritten.Format("02 Jan 2006"),
 		"@OTime", om.DateWritten.Format("15:04:05"),
 		"@OName", om.From,
 		"@DName", om.To)
@@ -321,7 +384,7 @@ func (m *Message) ToEditForwardView(om *Message) string {
 	r := strings.NewReplacer(
 		"@pseudo", m.To,
 		"@CFName", strings.Split(m.From, " ")[0],
-		"@ODate", om.DateWritten.Format("02 Jan 06"),
+		"@ODate", om.DateWritten.Format("02 Jan 2006"),
 		"@OTime", om.DateWritten.Format("15:04:05"),
 		"@OName", om.From,
 		"@OAddr", om.FromAddr.String(),
@@ -366,12 +429,12 @@ func (m *Message) ToEditForwardView(om *Message) string {
 // MakeBody make body
 func (m *Message) MakeBody() *Message {
 	if (*m.AreaObject).GetType() == EchoAreaTypeNetmail {
-		to := m.ToAddr
-		top := to.GetPoint()
-		to.SetPoint(0)
-		from := m.FromAddr
-		fromp := from.GetPoint()
-		from.SetPoint(0)
+		// Create copies of addresses to avoid modifying the original
+		to := types.AddrFromNum(m.ToAddr.GetZone(), m.ToAddr.GetNet(), m.ToAddr.GetNode(), 0)
+		top := m.ToAddr.GetPoint()
+		from := types.AddrFromNum(m.FromAddr.GetZone(), m.FromAddr.GetNet(), m.FromAddr.GetNode(), 0)
+		fromp := m.FromAddr.GetPoint()
+		
 		m.Kludges["INTL"] = to.String() + " " + from.String()
 		if top > 0 {
 			m.Kludges["TOPT"] = strconv.FormatUint(uint64(top), 10)
@@ -381,7 +444,15 @@ func (m *Message) MakeBody() *Message {
 		}
 	}
 	m.Kludges["MSGID:"] = fmt.Sprintf("%s %08x", m.FromAddr.String(), uint32(time.Now().Unix()))
-	m.Body = strings.Join(strings.Split(m.Body, "\n"), "\x0d") + "\x0d"
+	
+	// Use format-specific line ending normalization
+	if m.AreaObject != nil {
+		m.Body = (*m.AreaObject).NormalizeForStorage(m.Body)
+	} else {
+		// Fallback to traditional FTN format for backward compatibility
+		m.Body = strings.Join(strings.Split(m.Body, "\n"), "\x0d") + "\x0d"
+	}
+	
 	m.DateWritten = time.Now()
 	m.DateArrived = m.DateWritten
 	m.Kludges["TZUTC:"] = strings.Replace(m.DateWritten.Format("-0700"), "+", "", 1)
