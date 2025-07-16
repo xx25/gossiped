@@ -420,6 +420,7 @@ func (v *View) Draw(screen tcell.Screen) {
 	v.Box.Draw(screen)
 	v.x, v.y, v.width, v.height = v.Box.GetInnerRect()
 
+
 	// TODO(pdg): just clear from the last line down.
 	for y := v.y; y < v.y+v.height; y++ {
 		for x := v.x; x < v.x+v.width; x++ {

@@ -37,6 +37,13 @@ func (e *SearchString) AddChar(ch rune) {
 	e.txt += string(ch)
 }
 
+// RemoveChar removes last character from searchString
+func (e *SearchString) RemoveChar() {
+	if len(e.txt) > 0 {
+		e.txt = e.txt[:len(e.txt)-1]
+	}
+}
+
 // Clear searchString
 func (e *SearchString) Clear() {
 	e.txt = ""

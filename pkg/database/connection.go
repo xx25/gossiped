@@ -33,9 +33,19 @@ func InitDatabase(config DatabaseConfig) error {
 		return fmt.Errorf("unsupported database driver: %s", config.Driver)
 	}
 
-	// Configure GORM logger
+	// Configure GORM logger to use application logger instead of stdout/stderr
+	gormLogger := logger.New(
+		log.New(log.Writer(), "[GORM] ", log.LstdFlags),
+		logger.Config{
+			SlowThreshold:             200 * time.Millisecond,
+			LogLevel:                  logger.Warn,
+			IgnoreRecordNotFoundError: true, // Don't log "record not found" errors
+			Colorful:                  false,
+		},
+	)
+	
 	gormConfig := &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Warn),
+		Logger: gormLogger,
 	}
 
 	var err error

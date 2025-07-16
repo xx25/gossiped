@@ -34,12 +34,19 @@ func (a *App) ViewMsg(area *msgapi.AreaPrimitive, msgNum uint32) (string, tview.
 		}
 		(*area).SetLast(msgNum)
 	}
-	a.sb.SetStatus(fmt.Sprintf("%s: message %d of %d (%d left)",
-		(*area).GetName(),
-		msgNum,
-		(*area).GetCount(),
-		(*area).GetCount()-msgNum,
-	))
+	
+	// Set appropriate status message
+	if (*area).GetCount() == 0 {
+		a.sb.SetStatus(fmt.Sprintf("%s: empty area (0 messages)",
+			(*area).GetName()))
+	} else {
+		a.sb.SetStatus(fmt.Sprintf("%s: message %d of %d (%d left)",
+			(*area).GetName(),
+			msgNum,
+			(*area).GetCount(),
+			(*area).GetCount()-msgNum,
+		))
+	}
 	styleBorder := config.GetElementStyle(config.ColorAreaMessageHeader, config.ColorElementBorder)
 	fgTitle, bgTitle, titleAttrs := config.GetElementStyle(config.ColorAreaMessageHeader, config.ColorElementTitle).Decompose()
 	header := NewViewHeader(msg)
@@ -54,9 +61,11 @@ func (a *App) ViewMsg(area *msgapi.AreaPrimitive, msgNum uint32) (string, tview.
 		SetTitleAlign(tview.AlignLeft)
 	var body *editor.View
 	if msg != nil {
-		body = editor.NewView(editor.NewBufferFromString(msg.ToView(a.showKludges)))
+		content := msg.ToView(a.showKludges)
+		body = editor.NewView(editor.NewBufferFromString(content))
 	} else {
-		body = editor.NewView(editor.NewBufferFromString(""))
+		// For empty areas, use a single newline to ensure background fills the space
+		body = editor.NewView(editor.NewBufferFromString("\n"))
 	}
 	header.SetDoneFunc(func(s string) {
 		num, _ := strconv.ParseUint(s, 10, 32)

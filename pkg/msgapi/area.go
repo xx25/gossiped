@@ -104,10 +104,36 @@ func Lookup(name string) int {
 
 // Search part name->id
 func Search(name string) int {
-	for i, a := range Areas {
-		if strings.Contains(strings.ToLower(a.GetName()), strings.ToLower(name)) {
-			return i + 1
-		}
+	filtered := FilterAreas(name)
+	if len(filtered) > 0 {
+		return filtered[0].OriginalIndex + 1
 	}
 	return 0
+}
+
+// FilteredArea wraps an area with its original index
+type FilteredArea struct {
+	AreaPrimitive
+	OriginalIndex int
+}
+
+// FilterAreas returns areas that match the search string with original indices
+func FilterAreas(searchText string) []FilteredArea {
+	if searchText == "" {
+		var result []FilteredArea
+		for i, a := range Areas {
+			result = append(result, FilteredArea{a, i})
+		}
+		return result
+	}
+	
+	var filtered []FilteredArea
+	searchLower := strings.ToLower(searchText)
+	
+	for i, a := range Areas {
+		if strings.Contains(strings.ToLower(a.GetName()), searchLower) {
+			filtered = append(filtered, FilteredArea{a, i})
+		}
+	}
+	return filtered
 }

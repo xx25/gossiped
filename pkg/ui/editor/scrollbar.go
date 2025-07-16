@@ -12,14 +12,22 @@ type ScrollBar struct {
 
 // Display shows the scrollbar
 func (sb *ScrollBar) Display(screen tcell.Screen) {
+	pos := sb.pos()
+	x := sb.view.x + sb.view.width - 1
+	y := sb.view.y + pos
 	style := config.StyleDefault.Reverse(true)
-	screen.SetContent(sb.view.x+sb.view.width-1, sb.view.y+sb.pos(), ' ', nil, style)
+	screen.SetContent(x, y, ' ', nil, style)
 }
 
 func (sb *ScrollBar) pos() int {
 	numlines := sb.view.Buf.NumLines
 	h := sb.view.height
+	
+	// Avoid division by zero for empty buffers
+	if numlines <= 0 {
+		return 0
+	}
+	
 	filepercent := float32(sb.view.Topline) / float32(numlines)
-
 	return int(filepercent * float32(h))
 }

@@ -68,6 +68,15 @@ func (a *App) RefreshAreaList() {
 }
 
 func refreshAreaList(a *App, currentArea string) {
+	refreshAreaListWithFilter(a, currentArea, "")
+}
+
+// getAreasForSelection returns the appropriate area slice based on search text
+func getAreasForSelection(searchText string) []msgapi.FilteredArea {
+	return msgapi.FilterAreas(searchText)
+}
+
+func refreshAreaListWithFilter(a *App, currentArea string, searchText string) {
 	msgapi.SortAreas()
 	a.al.Clear()
 	initAreaListHeader(a)
@@ -76,14 +85,20 @@ func refreshAreaList(a *App, currentArea string) {
 	fgItem, bgItem, attrItem := styleItem.Decompose()
 	fgHigh, bgHigh, attrHigh := styleHighligt.Decompose()
 	var selectIndex = -1
-	for i, ar := range msgapi.Areas {
+	
+	// Get filtered areas based on search text
+	filteredAreas := msgapi.FilterAreas(searchText)
+	
+	for i, filtered := range filteredAreas {
+		ar := filtered.AreaPrimitive
 		fg, bg, attr := fgItem, bgItem, attrItem
 		areaStyle := ""
 		if msgapi.AreaHasUnreadMessages(&ar) {
 			areaStyle = "+"
 			fg, bg, attr = fgHigh, bgHigh, attrHigh
 		}
-		a.al.SetCell(i+1, 0, tview.NewTableCell(areaStyle+strconv.FormatInt(int64(i), 10)).
+		
+		a.al.SetCell(i+1, 0, tview.NewTableCell(areaStyle+strconv.FormatInt(int64(filtered.OriginalIndex), 10)).
 			SetAlign(tview.AlignRight).
 			SetTextColor(fg).SetBackgroundColor(bg).SetAttributes(attr))
 		a.al.SetCell(i+1, 1, tview.NewTableCell(ar.GetName()).
@@ -98,15 +113,23 @@ func refreshAreaList(a *App, currentArea string) {
 			selectIndex = i + 1
 		}
 	}
+	
+	// Auto-select first item if searching and no current area selected
+	if searchText != "" && selectIndex == -1 && len(filteredAreas) > 0 {
+		selectIndex = 1
+	}
+	
 	if selectIndex != -1 {
 		a.al.Select(selectIndex, 0)
 	}
-
 }
 
 // AreaList - arealist widget
 func (a *App) AreaList() (string, tview.Primitive, bool, bool) {
 	searchString := NewSearchString()
+	var currentSearchText string
+	var disableSetSelectedFunc bool
+	
 	a.al = tview.NewTable().
 		SetFixed(1, 0).
 		SetSelectable(true, false).
@@ -114,36 +137,91 @@ func (a *App) AreaList() (string, tview.Primitive, bool, bool) {
 			if row < 1 {
 				row = 1
 			}
-			var area = msgapi.Areas[row-1]
-			a.sb.SetStatus(fmt.Sprintf("%s: %d msgs, %d unread",
-				area.GetName(),
-				area.GetCount(),
-				area.GetCount()-area.GetLast(),
-			))
+			areas := getAreasForSelection(currentSearchText)
+			
+			if row-1 < len(areas) {
+				var area = areas[row-1].AreaPrimitive
+				a.sb.SetStatus(fmt.Sprintf("%s: %d msgs, %d unread",
+					area.GetName(),
+					area.GetCount(),
+					area.GetCount()-area.GetLast(),
+				))
+			}
 		})
 	_, defBg, _ := config.StyleDefault.Decompose()
 	a.al.SetBackgroundColor(defBg)
 	a.al.SetSelectedFunc(func(row int, column int) {
-		a.onSelected(row, column)
+		// This is called when double-clicking or other selection events
+		if disableSetSelectedFunc {
+			return
+		}
+		if currentSearchText == "" {
+			a.onSelected(row, column)
+		}
 	})
 	a.al.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch key := event.Key(); key {
 		case tcell.KeyEsc:
 			searchString.Clear()
+			currentSearchText = ""
+			disableSetSelectedFunc = false // Re-enable when returning to area list
+			refreshAreaList(a, "")
 			a.Pages.ShowPage("AreaListQuit")
 		case tcell.KeyF1:
 			a.Pages.ShowPage("AreaListHelp")
-		case tcell.KeyRight:
-			searchString.Clear()
-			a.onSelected(a.al.GetSelection())
-		case tcell.KeyDown, tcell.KeyUp, tcell.KeyEnter:
-			searchString.Clear()
+		case tcell.KeyRight, tcell.KeyEnter:
+			// Disable SetSelectedFunc during our manual selection
+			disableSetSelectedFunc = true
+			
+			row, _ := a.al.GetSelection()
+			areas := getAreasForSelection(currentSearchText)
+			
+			// Do the selection with current state
+			if row-1 < len(areas) {
+				filtered := areas[row-1]
+				a.CurrentArea = &msgapi.Areas[filtered.OriginalIndex]
+			}
+			
+			if a.CurrentArea != nil {
+				// Initialize area before first access
+				(*a.CurrentArea).Init()
+				lastMsg := (*a.CurrentArea).GetLast()
+				countMsg := (*a.CurrentArea).GetCount()
+				
+				// Handle empty areas properly - allow access but use special message number
+				var msgNum uint32
+				if countMsg == 0 {
+					msgNum = 1 // ViewMsg will handle this case properly
+				} else if lastMsg == 0 && countMsg > 0 {
+					msgNum = 1
+				} else {
+					msgNum = lastMsg
+				}
+				
+				pageName := fmt.Sprintf("ViewMsg-%s-%d", (*a.CurrentArea).GetName(), msgNum)
+				
+				if a.Pages.HasPage(pageName) {
+					a.Pages.SwitchToPage(pageName)
+				} else {
+					a.Pages.AddPage(a.ViewMsg(a.CurrentArea, msgNum))
+					a.Pages.SwitchToPage(pageName)
+				}
+				
+				// Clear search AFTER navigation
+				searchString.Clear()
+				currentSearchText = ""
+			}
+		case tcell.KeyDown, tcell.KeyUp:
+			// Allow navigation within filtered list - don't clear search
+			return event
+		case tcell.KeyBackspace, tcell.KeyBackspace2:
+			searchString.RemoveChar()
+			currentSearchText = searchString.GetText()
+			refreshAreaListWithFilter(a, "", currentSearchText)
 		case tcell.KeyRune:
 			searchString.AddChar(event.Rune())
-			row := msgapi.Search(searchString.GetText())
-			if row > 0 {
-				a.al.Select(row, 0)
-			}
+			currentSearchText = searchString.GetText()
+			refreshAreaListWithFilter(a, "", currentSearchText)
 		}
 		return event
 	})
@@ -166,3 +244,4 @@ func (a *App) onSelected(row int, column int) {
 		a.Pages.SwitchToPage(fmt.Sprintf("ViewMsg-%s-%d", (*a.CurrentArea).GetName(), (*a.CurrentArea).GetLast()))
 	}
 }
+
