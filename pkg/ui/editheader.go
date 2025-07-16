@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"github.com/askovpen/gossiped/pkg/config"
 	"github.com/askovpen/gossiped/pkg/msgapi"
 	"github.com/askovpen/gossiped/pkg/nodelist"
@@ -134,6 +135,13 @@ func (e *EditHeader) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 				}
 				e.sPosition[e.sIndex]--
 			}
+		case tcell.KeyEscape:
+			// Cancel message creation - remove pages and return to ViewMsg
+			insertPageName := fmt.Sprintf("InsertMsg-%s", (*e.app.im.curArea).GetName())
+			viewPageName := fmt.Sprintf("ViewMsg-%s-%d", (*e.app.im.curArea).GetName(), (*e.app.im.curArea).GetLast())
+			e.app.Pages.RemovePage(insertPageName)
+			e.app.Pages.SwitchToPage(viewPageName)
+			e.app.App.SetFocus(e.app.Pages)
 		case tcell.KeyRune:
 			add(event.Rune())
 		}
