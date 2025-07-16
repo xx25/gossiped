@@ -12,7 +12,12 @@ import (
 )
 
 func (a *App) SwitchToAreaListPage() {
-	a.RefreshAreaList()
+	// When using unread sorting, position cursor at top (first unread area)
+	if config.Config.Sorting["areas"] == msgapi.AreasSortingUnread {
+		a.RefreshAreaListToFirstUnread()
+	} else {
+		a.RefreshAreaList()
+	}
 	a.Pages.SwitchToPage("AreaList")
 }
 

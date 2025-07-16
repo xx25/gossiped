@@ -67,8 +67,30 @@ func (a *App) RefreshAreaList() {
 	refreshAreaList(a, currentArea)
 }
 
+func (a *App) RefreshAreaListToFirstUnread() {
+	refreshAreaListToFirstUnread(a)
+}
+
 func refreshAreaList(a *App, currentArea string) {
 	refreshAreaListWithFilter(a, currentArea, "")
+}
+
+func refreshAreaListToFirstUnread(a *App) {
+	refreshAreaListWithFilter(a, "", "")
+	
+	// After refresh, find the first area with unread messages and select it
+	filteredAreas := msgapi.FilterAreas("")
+	for i, filtered := range filteredAreas {
+		ar := filtered.AreaPrimitive
+		if msgapi.AreaHasUnreadMessages(&ar) {
+			a.al.Select(i+1, 0)
+			return
+		}
+	}
+	// If no unread areas found, select first area
+	if len(filteredAreas) > 0 {
+		a.al.Select(1, 0)
+	}
 }
 
 // getAreasForSelection returns the appropriate area slice based on search text
