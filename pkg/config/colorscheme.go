@@ -25,20 +25,35 @@ const (
 	ColorAreaDefault       = "default"
 )
 const (
-	ColorElementHeader    = "header"
-	ColorElementSelection = "selection"
-	ColorElementTitle     = "title"
-	ColorElementItem      = "item"
-	ColorElementHighlight = "highlight"
-	ColorElementBorder    = "border"
-	ColorElementText      = "text"
-	ColorElementPrompt    = "prompt"
-	ColorElementWindow    = "window"
+	ColorElementHeader      = "header"
+	ColorElementSelection   = "selection"
+	ColorElementTitle       = "title"
+	ColorElementItem        = "item"
+	ColorElementHighlight   = "highlight"
+	ColorElementBorder      = "border"
+	ColorElementBorderStyle = "border_style"
+	ColorElementText        = "text"
+	ColorElementPrompt      = "prompt"
+	ColorElementWindow      = "window"
 )
 const (
 	StyleUnderline = "underline"
 	StyleBold      = "bold"
 	StyleReverse   = "reverse"
+)
+const (
+	BorderStyleSingle = "single"
+	BorderStyleDouble = "double"
+)
+
+// Element types for validation
+const (
+	ElementTypeColor       = "color"
+	ElementTypeBorderStyle = "border_style"
+	// Future element types can be added here:
+	// ElementTypeBoolean     = "boolean"
+	// ElementTypeEnum        = "enum"
+	// ElementTypeInteger     = "integer"
 )
 
 type (
@@ -54,30 +69,33 @@ var (
 			ColorElementText: "silver, black",
 		},
 		ColorAreaAreaList: {
-			ColorElementBorder:    "blue",
-			ColorElementHeader:    "bold yellow",
-			ColorElementTitle:     "bold yellow",
-			ColorElementSelection: "white, navy",
-			ColorElementItem:      "silver",
-			ColorElementHighlight: "bold silver",
-			ColorElementPrompt:    "silver",
+			ColorElementBorder:      "blue",
+			ColorElementBorderStyle: BorderStyleSingle,
+			ColorElementHeader:      "bold yellow",
+			ColorElementTitle:       "bold yellow",
+			ColorElementSelection:   "white, navy",
+			ColorElementItem:        "silver",
+			ColorElementHighlight:   "bold silver",
+			ColorElementPrompt:      "silver",
 		},
 		ColorAreaAreaListModal: {
-			ColorElementBorder:    "red",
-			ColorElementHeader:    "bold yellow",
-			ColorElementTitle:     "bold yellow",
-			ColorElementSelection: "white, navy",
-			ColorElementItem:      "silver",
-			ColorElementHighlight: "bold silver",
-			ColorElementPrompt:    "silver",
+			ColorElementBorder:      "red",
+			ColorElementBorderStyle: BorderStyleSingle,
+			ColorElementHeader:      "bold yellow",
+			ColorElementTitle:       "bold yellow",
+			ColorElementSelection:   "white, navy",
+			ColorElementItem:        "silver",
+			ColorElementHighlight:   "bold silver",
+			ColorElementPrompt:      "silver",
 		},
 		ColorAreaMessageList: {
-			ColorElementSelection: "bold white, navy",
-			ColorElementHeader:    "bold yellow",
-			ColorElementTitle:     "bold yellow",
-			ColorElementItem:      "silver",
-			ColorElementBorder:    "red",
-			ColorElementHighlight: "bold default",
+			ColorElementSelection:   "bold white, navy",
+			ColorElementHeader:      "bold yellow",
+			ColorElementTitle:       "bold yellow",
+			ColorElementItem:        "silver",
+			ColorElementBorder:      "red",
+			ColorElementBorderStyle: BorderStyleSingle,
+			ColorElementHighlight:   "bold default",
 		},
 		ColorAreaEditor: {
 			"comment":  "bold yellow",
@@ -90,24 +108,27 @@ var (
 			"kludge":   "bold gray",
 		},
 		ColorAreaHelp: {
-			ColorElementBorder: "bold blue",
-			ColorElementTitle:  "bold yellow",
-			ColorElementText:   "default",
+			ColorElementBorder:      "bold blue",
+			ColorElementBorderStyle: BorderStyleSingle,
+			ColorElementTitle:       "bold yellow",
+			ColorElementText:        "default",
 		},
 		ColorAreaMessageHeader: {
-			ColorElementItem:      "silver",
-			ColorElementHighlight: "bold silver",
-			ColorElementHeader:    "bold silver",
-			ColorElementSelection: "silver, navy",
-			ColorElementBorder:    "bold blue",
-			ColorElementTitle:     "bold yellow",
-			ColorElementWindow:    "default",
+			ColorElementItem:        "silver",
+			ColorElementHighlight:   "bold silver",
+			ColorElementHeader:      "bold silver",
+			ColorElementSelection:   "silver, navy",
+			ColorElementBorder:      "bold blue",
+			ColorElementBorderStyle: BorderStyleSingle,
+			ColorElementTitle:       "bold yellow",
+			ColorElementWindow:      "default",
 		},
 		ColorAreaDialog: {
-			ColorElementItem:      "bold silver",
-			ColorElementSelection: "bold silver, navy",
-			ColorElementTitle:     "bold yellow",
-			ColorElementBorder:    "bold red",
+			ColorElementItem:        "bold silver",
+			ColorElementSelection:   "bold silver, navy",
+			ColorElementTitle:       "bold yellow",
+			ColorElementBorder:      "bold red",
+			ColorElementBorderStyle: BorderStyleSingle,
 		},
 		ColorAreaStatusBar: {
 			ColorElementText: "bold white, navy",
@@ -122,6 +143,20 @@ var (
 		"D": tcell.AttrDim,
 		"S": tcell.AttrStrikeThrough,
 		"R": tcell.AttrReverse,
+	}
+
+	// Element type mapping for validation
+	elementTypes = map[string]string{
+		ColorElementHeader:      ElementTypeColor,
+		ColorElementSelection:   ElementTypeColor,
+		ColorElementTitle:       ElementTypeColor,
+		ColorElementItem:        ElementTypeColor,
+		ColorElementHighlight:   ElementTypeColor,
+		ColorElementBorder:      ElementTypeColor,
+		ColorElementBorderStyle: ElementTypeBorderStyle,
+		ColorElementText:        ElementTypeColor,
+		ColorElementPrompt:      ElementTypeColor,
+		ColorElementWindow:      ElementTypeColor,
 	}
 )
 
@@ -138,26 +173,20 @@ func ProduceColorMapFromConfig(colorArea string, fallbackColors *ColorMap) (*Col
 	if Config.Colors[colorArea] == nil || len(Config.Colors[colorArea]) == 0 {
 		return &fallback, nil
 	}
-	var validation error = nil
+	
 	for element, colorValue := range Config.Colors[colorArea] {
 		colorValue = strings.ToLower(strings.TrimSpace(colorValue))
 		if !validKeys[element] {
-			validation = errors.Join(
-				validation,
-				errors.New("not valid element for area (element: "+element+", area: "+colorArea+")"),
-			)
+			log.Printf("Configuration warning: unknown element '%s' for area '%s', using default", element, colorArea)
 			continue
 		}
-		if _, err := StringToStyle(colorValue); err != nil {
-			validation = errors.Join(
-				validation,
-				errors.New(err.Error()+" (element: "+element+", area: "+colorArea+")"),
-			)
+		if err := validateElement(element, colorValue); err != nil {
+			log.Printf("Configuration warning: %s (element: %s, area: %s), using default", err.Error(), element, colorArea)
 			continue
 		}
 		out[element] = colorValue
 	}
-	return &out, validation
+	return &out, nil
 }
 
 // ProduceColorSchemeFromConfig
@@ -166,10 +195,7 @@ func ProduceColorMapFromConfig(colorArea string, fallbackColors *ColorMap) (*Col
 // returns pointer to ColorScheme object
 func ProduceColorSchemeFromConfig(colorArea string, defaultColors *ColorMap) *ColorScheme {
 	scheme := ColorScheme{}
-	colors, err := ProduceColorMapFromConfig(colorArea, defaultColors)
-	if err != nil {
-		log.Println("Color parse errors: ", err)
-	}
+	colors, _ := ProduceColorMapFromConfig(colorArea, defaultColors)
 	for colorType, colorValue := range *colors {
 		scheme[colorType], _ = StringToStyle(colorValue)
 	}
@@ -250,6 +276,37 @@ func StringToStyle(str string) (tcell.Style, error) {
 	return style, errStack
 }
 
+// validateColorElement validates a color element value
+func validateColorElement(value string) error {
+	_, err := StringToStyle(value)
+	return err
+}
+
+// validateBorderStyleElement validates a border_style element value
+func validateBorderStyleElement(value string) error {
+	if value != BorderStyleSingle && value != BorderStyleDouble {
+		return fmt.Errorf("invalid border_style value: %s (must be 'single' or 'double')", value)
+	}
+	return nil
+}
+
+// validateElement validates an element based on its type
+func validateElement(element, value string) error {
+	elementType, exists := elementTypes[element]
+	if !exists {
+		return fmt.Errorf("unknown element type for: %s", element)
+	}
+	
+	switch elementType {
+	case ElementTypeColor:
+		return validateColorElement(value)
+	case ElementTypeBorderStyle:
+		return validateBorderStyleElement(value)
+	default:
+		return fmt.Errorf("unsupported element type: %s", elementType)
+	}
+}
+
 // GetColor takes in a syntax group and returns the colorscheme's style for that group
 func (colorscheme ColorScheme) GetColor(color string) tcell.Style {
 	st := StyleDefault
@@ -301,6 +358,76 @@ func GetElementStyle(section string, element string) tcell.Style {
 		return StyleDefault
 	}
 	return value
+}
+
+func GetBorderStyle(section string) string {
+	colors, _ := ProduceColorMapFromConfig(section, uiDefaultColors[section])
+	if colors != nil {
+		if borderStyle, ok := (*colors)[ColorElementBorderStyle]; ok {
+			log.Printf("Found border_style for %s: %s", section, borderStyle)
+			return borderStyle
+		}
+	}
+	
+	// Check if we have a default border style for this section
+	if defaultColors, ok := uiDefaultColors[section]; ok {
+		if borderStyle, ok := (*defaultColors)[ColorElementBorderStyle]; ok {
+			log.Printf("Using built-in default border_style for %s: %s", section, borderStyle)
+			return borderStyle
+		}
+	}
+	
+	log.Printf("Using fallback border_style for %s: %s", section, BorderStyleSingle)
+	return BorderStyleSingle // default fallback
+}
+
+func ApplyBorderStyle(section string) {
+	borderStyle := GetBorderStyle(section)
+	log.Printf("ApplyBorderStyle for %s: %s", section, borderStyle)
+	
+	if borderStyle == BorderStyleSingle {
+		// Set single line borders (both regular and focus)
+		tview.Borders.Horizontal = '─'
+		tview.Borders.Vertical = '│'
+		tview.Borders.TopLeft = '┌'
+		tview.Borders.TopRight = '┐'
+		tview.Borders.BottomLeft = '└'
+		tview.Borders.BottomRight = '┘'
+		tview.Borders.LeftT = '├'
+		tview.Borders.RightT = '┤'
+		tview.Borders.TopT = '┬'
+		tview.Borders.BottomT = '┴'
+		tview.Borders.Cross = '┼'
+		
+		// Also set focus borders to single line
+		tview.Borders.HorizontalFocus = '─'
+		tview.Borders.VerticalFocus = '│'
+		tview.Borders.TopLeftFocus = '┌'
+		tview.Borders.TopRightFocus = '┐'
+		tview.Borders.BottomLeftFocus = '└'
+		tview.Borders.BottomRightFocus = '┘'
+	} else if borderStyle == BorderStyleDouble {
+		// Set double line borders (both regular and focus)
+		tview.Borders.Horizontal = '═'
+		tview.Borders.Vertical = '║'
+		tview.Borders.TopLeft = '╔'
+		tview.Borders.TopRight = '╗'
+		tview.Borders.BottomLeft = '╚'
+		tview.Borders.BottomRight = '╝'
+		tview.Borders.LeftT = '╠'
+		tview.Borders.RightT = '╣'
+		tview.Borders.TopT = '╦'
+		tview.Borders.BottomT = '╩'
+		tview.Borders.Cross = '╬'
+		
+		// Also set focus borders to double line
+		tview.Borders.HorizontalFocus = '═'
+		tview.Borders.VerticalFocus = '║'
+		tview.Borders.TopLeftFocus = '╔'
+		tview.Borders.TopRightFocus = '╗'
+		tview.Borders.BottomLeftFocus = '╚'
+		tview.Borders.BottomRightFocus = '╝'
+	}
 }
 
 func FormatTextWithStyle(text string, style tcell.Style) string {

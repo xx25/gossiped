@@ -102,6 +102,9 @@ func getAreasForSelection(searchText string) []msgapi.FilteredArea {
 }
 
 func refreshAreaListWithFilter(a *App, currentArea string, searchText string) {
+	// Apply border style for area list each time it's refreshed
+	config.ApplyBorderStyle(config.ColorAreaAreaList)
+	
 	msgapi.SortAreas()
 	a.al.Clear()
 	initAreaListHeader(a)

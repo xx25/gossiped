@@ -28,7 +28,7 @@ func (e *SearchString) Draw(screen tcell.Screen) {
 	e.Box.SetBackgroundColor(bg)
 	//e.Box.SetBorderStyle(styleBorder)
 	x, y, _, _ := e.GetInnerRect()
-	tview.Print(screen, config.FormatTextWithStyle(">> Pick New Area: ", stylePrompt), x, y, 18, 0, fg)
+	tview.Print(screen, config.FormatTextWithStyle(">>Pick New Area: ", stylePrompt), x, y, 18, 0, fg)
 	tview.Print(screen, config.FormatTextWithStyle(e.txt, stylePrompt), x+18, y, len(e.txt), 0, fg)
 }
 

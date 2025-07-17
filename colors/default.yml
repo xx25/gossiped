@@ -13,6 +13,7 @@ editor:
   kludge:   bold gray
 dialog:
   border: bold red
+  border_style: double
   item: bold silver
   selection: bold silver, navy
   title: bold yellow
@@ -26,6 +27,7 @@ messageHeader:
   window: default, default
 messageList:
   border: red
+  border_style: double
   header: bold yellow
   title: bold yellow
   prompt: silver
@@ -34,11 +36,12 @@ messageList:
   selection: bold white, navy
 areaList:
   border: blue
+  border_style: single
   header: bold yellow
   title: bold yellow
   prompt: silver
   item: silver
-  highlight: bold silver
+  highlight: silver
   selection: white, navy
 areaListModal:
   border: red
