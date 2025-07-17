@@ -81,7 +81,9 @@ var (
 		},
 		ColorAreaEditor: {
 			"comment":  "bold yellow",
-			"icomment": "bold white",
+			"comment2": "bold white",
+			"comment3": "bold cyan",
+			"comment4": "bold magenta",
 			"origin":   "bold white",
 			"tearline": "bold white",
 			"tagline":  "bold white",

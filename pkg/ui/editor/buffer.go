@@ -106,7 +106,9 @@ detect:
   filename: "\\.msg$"
 rules:
 - comment: ".*\\>+.*$"
-- icomment: ".*[^>](>>)+[^>].*$"
+- comment2: ".*\\>{2}.*$"
+- comment3: ".*\\>{3}.*$"
+- comment4: ".*\\>{4}.*$"
 - tagline: "^\\.\\.\\..*$"
 - origin: "^ \\* Origin:.*$"
 - tearline: "^--- .*$"

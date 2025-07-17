@@ -57,6 +57,10 @@ type (
 		Statusbar struct {
 			Clock bool
 		}
+		Quote struct {
+			Margin   int  `yaml:"margin"`
+			WrapHard bool `yaml:"wrap_hard"`
+		}
 		Sorting      SortTypeMap
 		Colors       map[string]ColorMap
 		CityPath     string
@@ -133,6 +137,9 @@ func Read(fn string) error {
 	}
 	// Set database defaults if not specified
 	setDatabaseDefaults()
+	
+	// Set quote defaults if not specified
+	setQuoteDefaults()
 
 	return nil
 }
@@ -154,6 +161,19 @@ func setDatabaseDefaults() {
 	if Config.Database.ConnMaxLifetime == 0 {
 		Config.Database.ConnMaxLifetime = 5 * time.Minute
 	}
+}
+
+// setQuoteDefaults sets default values for quote configuration
+func setQuoteDefaults() {
+	if Config.Quote.Margin == 0 {
+		Config.Quote.Margin = 70
+	}
+	// WrapHard defaults to false (already zero value)
+}
+
+// GetQuoteConfig returns the quote configuration with defaults applied
+func GetQuoteConfig() (int, bool) {
+	return Config.Quote.Margin, Config.Quote.WrapHard
 }
 
 // GetDatabaseConfig returns the database configuration with defaults applied

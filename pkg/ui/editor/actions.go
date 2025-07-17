@@ -180,6 +180,7 @@ func (v *View) InsertSpace() bool {
 }
 
 // InsertNewline inserts a newline plus possible some whitespace if autoindent is on
+// Now includes quote-aware newline handling similar to GoldED+
 func (v *View) InsertNewline() bool {
 	// Insert a newline
 	if v.Cursor.HasSelection() {
@@ -187,28 +188,80 @@ func (v *View) InsertNewline() bool {
 		v.Cursor.ResetSelection()
 	}
 
-	ws := GetLeadingWhitespace(v.Buf.Line(v.Cursor.Y))
+	currentLine := v.Buf.Line(v.Cursor.Y)
 	cx := v.Cursor.X
+	
+	// Extract quote string from current line
+	quoteStr, quoteLen := GetQuoteString(currentLine)
+	
+	// Check if quote string should be eliminated based on cursor position
+	// This follows GoldED+ logic: eliminate quote when at end of line, at linefeed, or inside quote string
+	if quoteLen > 0 && ShouldEliminateQuote(currentLine, cx) {
+		quoteStr = ""
+		quoteLen = 0
+	}
+	
+	// Insert the newline
 	v.Buf.Insert(v.Cursor.Loc, "\n")
-	// v.Cursor.Right()
-
+	
+	// Construct new line content with quote string
+	newLineContent := ""
+	
+	// Add quote string if present
+	if quoteLen > 0 {
+		newLineContent = quoteStr
+	}
+	
+	// Add auto-indentation if enabled
 	if v.Buf.Settings["autoindent"].(bool) {
+		ws := GetLeadingWhitespace(currentLine)
 		if cx < len(ws) {
 			ws = ws[0:cx]
 		}
-		v.Buf.Insert(v.Cursor.Loc, ws)
-		// for i := 0; i < len(ws); i++ {
-		// 	v.Cursor.Right()
-		// }
-
-		// Remove the whitespaces if keepautoindent setting is off
+		
+		// For quoted lines, we preserve the quote and add indentation after it
+		if quoteLen > 0 {
+			// Skip the quote part when extracting whitespace
+			if quoteLen < len(ws) {
+				wsAfterQuote := ws[quoteLen:]
+				newLineContent += wsAfterQuote
+			}
+		} else {
+			newLineContent = ws
+		}
+	}
+	
+	// Insert the constructed content
+	if newLineContent != "" {
+		v.Buf.Insert(v.Cursor.Loc, newLineContent)
+	}
+	
+	// Position cursor correctly
+	// In GoldED+, cursor appears at the beginning of the line in both cases:
+	// - If quote was eliminated (empty line): cursor at position 0
+	// - If quote was preserved: cursor at position 0 (beginning of line)
+	v.Cursor.X = 0
+	
+	// Check if we need to merge with next line (if quote strings match)
+	if v.Cursor.Y < v.Buf.NumLines-1 {
+		nextLine := v.Buf.Line(v.Cursor.Y + 1)
+		nextQuoteStr, nextQuoteLen := GetQuoteString(nextLine)
+		
+		// If quote strings match, we could implement line merging here
+		// For now, we'll keep it simple and just handle the newline
+		_ = nextQuoteStr
+		_ = nextQuoteLen
+	}
+	
+	// Remove empty whitespace lines if keepautoindent is off
+	if v.Buf.Settings["autoindent"].(bool) {
 		if IsSpacesOrTabs(v.Buf.Line(v.Cursor.Y-1)) && !v.Buf.Settings["keepautoindent"].(bool) {
 			line := v.Buf.Line(v.Cursor.Y - 1)
 			v.Buf.Remove(Loc{0, v.Cursor.Y - 1}, Loc{Count(line), v.Cursor.Y - 1})
 		}
 	}
+	
 	v.Cursor.LastVisualX = v.Cursor.GetVisualX()
-
 	return true
 }
 
