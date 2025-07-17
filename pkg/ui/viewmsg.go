@@ -16,7 +16,9 @@ func (a *App) SwitchToAreaListPage() {
 	if config.Config.Sorting["areas"] == msgapi.AreasSortingUnread {
 		a.RefreshAreaListToFirstUnread()
 	} else {
-		a.RefreshAreaList()
+		// Recreate area list to reset all state and start from beginning
+		a.Pages.RemovePage("AreaList")
+		a.Pages.AddPage(a.AreaList())
 	}
 	a.Pages.SwitchToPage("AreaList")
 }
